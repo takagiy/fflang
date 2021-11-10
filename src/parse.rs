@@ -14,15 +14,15 @@ pub enum Decl {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
-    name: String,
-    params: Vec<FnParam>,
-    body: Box<Expr>,
+    pub name: String,
+    pub params: Vec<FnParam>,
+    pub body: Box<Expr>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnParam {
-    name: String,
-    type_: Type,
+    pub name: String,
+    pub type_: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,7 +42,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarRef {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,22 +54,22 @@ pub enum Literal {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarLet {
-    name: String,
-    def: Box<Expr>,
-    body: Box<Expr>,
+    pub name: String,
+    pub def: Box<Expr>,
+    pub body: Box<Expr>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnApp {
-    fn_name: String,
-    args: Vec<Expr>,
+    pub fn_name: String,
+    pub args: Vec<Expr>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct If {
-    cond: Box<Expr>,
-    conseq: Box<Expr>,
-    alter: Box<Expr>,
+    pub cond: Box<Expr>,
+    pub conseq: Box<Expr>,
+    pub alter: Box<Expr>,
 }
 
 #[derive(Debug, Error)]
@@ -233,6 +233,20 @@ impl<I: Iterator<Item = Result<Token, LexError>>> Parser<I> {
             next.as_ref()
                 .map_or(false, |next| expected.iter().any(|ex| next == ex))
         })
+    }
+}
+
+impl<I> Iterator for Parser<I>
+where
+    I: Iterator<Item = Result<Token, LexError>>,
+{
+    type Item = Result<Decl, ParseError>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.tokens.peek().is_none() {
+            None
+        } else {
+            Some(self.next_tree())
+        }
     }
 }
 
