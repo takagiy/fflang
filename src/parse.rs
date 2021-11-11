@@ -200,7 +200,7 @@ impl<I: Iterator<Item = Result<Token, LexError>>> Parser<I> {
     fn expect_word(&mut self) -> Result<String, ParseError> {
         match self.next_token()? {
             Token::Word(w) => Ok(w),
-            other => Err(ParseError::UnexpectedToken),
+            _ => Err(ParseError::UnexpectedToken),
         }
     }
 
