@@ -8,7 +8,7 @@ use crate::hir_gen::{Decl, Expr, FnDef, HirGenError, Id};
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum HirCheckError {
     #[error("Unknown identifier were found")]
-    UnknownName,
+    UnknownName(String),
     #[error(transparent)]
     HirGenError(#[from] HirGenError),
 }
@@ -115,7 +115,7 @@ impl<'hir> Environment<'hir> {
             .names
             .get(name)
             .and_then(|ent_vec| ent_vec.last())
-            .ok_or(HirCheckError::UnknownName)?;
+            .ok_or(HirCheckError::UnknownName(name.to_owned()))?;
         self.refs.insert(id, *ent);
         Ok(())
     }
@@ -135,6 +135,10 @@ fn test_collect_entities() {
         id: 0,
         name: "sum".to_owned(),
         params: vec![
+            FnParam {
+                id: 0,
+                name: "add".to_owned(),
+            },
             FnParam {
                 id: 1,
                 name: "x".to_owned(),
