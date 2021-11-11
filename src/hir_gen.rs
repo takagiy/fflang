@@ -38,6 +38,7 @@ pub enum Decl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
     pub id: Id,
+    pub let_id: Id,
     pub name: String,
     pub params: Vec<FnParam>,
     pub body: Box<Expr>,
@@ -80,6 +81,7 @@ pub enum LitKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarLet {
     pub id: Id,
+    pub let_id: Id,
     pub name: String,
     pub def: Box<Expr>,
     pub body: Box<Expr>,
@@ -132,6 +134,7 @@ where
             .try_collect()?;
         Ok(Decl::FnDefDecl(FnDef {
             id: self.uniq_id(),
+            let_id: self.uniq_id(),
             name: ast.name,
             params,
             body: Box::new(self.gen_expr(*ast.body)?),
@@ -161,6 +164,7 @@ where
             }),
             parse::Expr::VarLetExpr(ex) => Expr::VarLetExpr(VarLet {
                 id: self.uniq_id(),
+                let_id: self.uniq_id(),
                 name: ex.name,
                 def: Box::new(self.gen_expr(*ex.def)?),
                 body: Box::new(self.gen_expr(*ex.body)?),

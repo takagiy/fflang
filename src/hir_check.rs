@@ -65,9 +65,9 @@ where
 
 impl<'hir> Environment<'hir> {
     fn collect_fn_entities(&mut self, fn_def: &'hir FnDef) -> Result<(), HirCheckError> {
-        self.add_entity(&fn_def.name, Entity {});
+        self.add_entity(&fn_def.name, fn_def.let_id, Entity {});
         for param in &fn_def.params {
-            self.add_entity(&param.name, Entity {});
+            self.add_entity(&param.name, param.id, Entity {});
         }
         self.collect_expr_entities(&fn_def.body)?;
         Ok(())
@@ -81,7 +81,7 @@ impl<'hir> Environment<'hir> {
             Expr::LiteralExpr(_) => (),
             Expr::VarLetExpr(ex) => {
                 self.collect_expr_entities(&ex.def)?;
-                self.add_entity(&ex.name, Entity {});
+                self.add_entity(&ex.name, ex.let_id, Entity {});
                 self.collect_expr_entities(&ex.body)?;
                 self.remove_name(&ex.name);
             }
@@ -120,10 +120,11 @@ impl<'hir> Environment<'hir> {
         Ok(())
     }
 
-    fn add_entity(&mut self, name: &'hir str, entity: Entity) {
+    fn add_entity(&mut self, name: &'hir str, id: Id, entity: Entity) {
         let idx = self.entities.len();
         self.entities.push(entity);
         self.names.entry(name).or_default().push(idx);
+        self.refs.insert(id, idx);
     }
 }
 
@@ -133,70 +134,72 @@ fn test_collect_entities() {
     use crate::lex::Sign;
     let hir = [Ok(Decl::FnDefDecl(FnDef {
         id: 0,
+        let_id: 1,
         name: "sum".to_owned(),
         params: vec![
             FnParam {
-                id: 0,
+                id: 2,
                 name: "add".to_owned(),
             },
             FnParam {
-                id: 1,
+                id: 3,
                 name: "x".to_owned(),
             },
             FnParam {
-                id: 2,
+                id: 4,
                 name: "y".to_owned(),
             },
             FnParam {
-                id: 3,
+                id: 5,
                 name: "z".to_owned(),
             },
         ],
         body: Box::new(Expr::VarLetExpr(VarLet {
-            id: 4,
+            id: 6,
+            let_id: 7,
             name: "x".to_owned(),
             def: Box::new(Expr::FnAppExpr(FnApp {
-                id: 5,
+                id: 8,
                 op: Box::new(Expr::VarRefExpr(VarRef {
-                    id: 6,
+                    id: 9,
                     name: "add".to_owned(),
                 })),
                 args: vec![
                     Expr::VarRefExpr(VarRef {
-                        id: 7,
+                        id: 10,
                         name: "x".to_owned(),
                     }),
                     Expr::VarRefExpr(VarRef {
-                        id: 8,
+                        id: 11,
                         name: "y".to_owned(),
                     }),
                 ],
             })),
             body: Box::new(Expr::IfExpr(If {
-                id: 9,
+                id: 12,
                 cond: Box::new(Expr::LiteralExpr(Literal {
-                    id: 10,
+                    id: 13,
                     kind: LitKind::Int(Sign::Positive, 1),
                 })),
                 conseq: Box::new(Expr::FnAppExpr(FnApp {
-                    id: 11,
+                    id: 14,
                     op: Box::new(Expr::VarRefExpr(VarRef {
-                        id: 12,
+                        id: 15,
                         name: "add".to_owned(),
                     })),
                     args: vec![
                         Expr::VarRefExpr(VarRef {
-                            id: 13,
+                            id: 16,
                             name: "x".to_owned(),
                         }),
                         Expr::VarRefExpr(VarRef {
-                            id: 14,
-                            name: "y".to_owned(),
+                            id: 17,
+                            name: "z".to_owned(),
                         }),
                     ],
                 })),
                 alter: Box::new(Expr::LiteralExpr(Literal {
-                    id: 15,
+                    id: 18,
                     kind: LitKind::Int(Sign::Positive, 0),
                 })),
             })),
@@ -204,4 +207,14 @@ fn test_collect_entities() {
     }))];
     let mut checker = HirChecker::new(hir.iter());
     assert_eq!(checker.collect_entities(), Ok(()));
+    let env = &checker.env;
+    assert_eq!(env.entities.len(), 6);
+    let ref1 = env.refs.get(&3);
+    let ref2 = env.refs.get(&10);
+    let ref3 = env.refs.get(&7);
+    let ref4 = env.refs.get(&16);
+    assert_ne!(ref1, None);
+    assert_eq!(ref1, ref2);
+    assert_ne!(ref1, ref3);
+    assert_eq!(ref3, ref4);
 }
