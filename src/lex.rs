@@ -47,7 +47,7 @@ pub struct Location {
     pub letter: usize,
 }
 
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[derive(Debug, Error, Clone, PartialEq)]
 pub enum LexError {
     #[error("Unrecognized symbol were found")]
     UnrecognizedSymbol,

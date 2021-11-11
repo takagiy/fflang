@@ -88,7 +88,7 @@ pub struct VarLet {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnApp {
     pub id: Id,
-    pub fn_name: String,
+    pub op: Box<Expr>,
     pub args: Vec<Expr>,
 }
 
@@ -100,7 +100,7 @@ pub struct If {
     pub alter: Box<Expr>,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone, PartialEq)]
 pub enum HirGenError {
     #[error(transparent)]
     ParseError(#[from] ParseError),
@@ -167,7 +167,10 @@ where
             }),
             parse::Expr::FnAppExpr(ex) => Expr::FnAppExpr(FnApp {
                 id: self.uniq_id(),
-                fn_name: ex.fn_name,
+                op: Box::new(Expr::VarRefExpr(VarRef {
+                    id: self.uniq_id(),
+                    name: ex.fn_name,
+                })),
                 args: ex
                     .args
                     .into_iter()
@@ -190,8 +193,10 @@ where
 }
 
 impl<I> Iterator for HirGenerator<I>
-where I: Iterator<Item=Result<parse::Decl, ParseError>> {
-    type Item=Result<Decl, HirGenError>;
+where
+    I: Iterator<Item = Result<parse::Decl, ParseError>>,
+{
+    type Item = Result<Decl, HirGenError>;
     fn next(&mut self) -> Option<Self::Item> {
         Some(match self.asts.next()? {
             Ok(ast) => self.generate(ast),

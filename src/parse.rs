@@ -72,7 +72,7 @@ pub struct If {
     pub alter: Box<Expr>,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone, PartialEq)]
 pub enum ParseError {
     #[error("Unexpected token were found")]
     UnexpectedToken,
