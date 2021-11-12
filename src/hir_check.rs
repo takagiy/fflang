@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use std::collections::HashMap;
 
-use crate::hir_gen::{Decl, Expr, FnDef, HirGenError, Id};
+use crate::hir_gen::{Decl, Expr, ExprKind, FnDef, HirGenError, Id, Literal};
 
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum HirCheckError {
@@ -13,12 +13,22 @@ pub enum HirCheckError {
     HirGenError(#[from] HirGenError),
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Entity {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Var(usize),
+    Int,
+    Float,
+    Str,
+}
 
 pub struct Environment<'hir> {
     pub entities: Vec<Entity>,
+    pub types: Vec<Type>,
     pub refs: HashMap<Id, usize>,
-    pub names: HashMap<&'hir str, Vec<usize>>,
+    var_env: HashMap<&'hir str, Vec<usize>>,
 }
 
 pub struct HirChecker<'hir, I>
@@ -33,8 +43,9 @@ impl<'hir> Environment<'hir> {
     pub fn new() -> Self {
         Environment {
             entities: Vec::new(),
+            types: Vec::new(),
             refs: HashMap::new(),
-            names: HashMap::new(),
+            var_env: HashMap::new(),
         }
     }
 }
@@ -48,6 +59,18 @@ where
             env: Environment::new(),
             hir,
         }
+    }
+
+    pub fn check_type(&mut self) -> Result<(), HirCheckError> {
+        for decl in self.hir.by_ref() {
+            match decl {
+                Ok(decl) => match decl {
+                    Decl::FnDefDecl(fn_def) => self.env.type_fn(fn_def)?,
+                },
+                Err(e) => return Err(HirCheckError::HirGenError(e.clone())),
+            }
+        }
+        Ok(())
     }
 
     pub fn collect_entities(&mut self) -> Result<(), HirCheckError> {
@@ -64,6 +87,15 @@ where
 }
 
 impl<'hir> Environment<'hir> {
+    fn type_fn(&mut self, fn_def: &'hir FnDef) -> Result<(), HirCheckError> {
+        let ret_type = self.type_expr(&fn_def.body)?;
+        Ok(())
+    }
+
+    fn type_expr(&mut self, expr: &'hir Expr) -> Result<Type, HirCheckError> {
+        panic!("")
+    }
+
     fn collect_fn_entities(&mut self, fn_def: &'hir FnDef) -> Result<(), HirCheckError> {
         self.add_entity(&fn_def.name, fn_def.let_id, Entity {});
         for param in &fn_def.params {
@@ -74,23 +106,23 @@ impl<'hir> Environment<'hir> {
     }
 
     fn collect_expr_entities(&mut self, expr: &'hir Expr) -> Result<(), HirCheckError> {
-        match expr {
-            Expr::VarRefExpr(ex) => {
-                self.resolve_id(ex.id, &ex.name)?;
+        match &expr.kind {
+            ExprKind::VarRefExpr(ex) => {
+                self.resolve_id(expr.id, &ex.name)?;
             }
-            Expr::LiteralExpr(_) => (),
-            Expr::VarLetExpr(ex) => {
+            ExprKind::LiteralExpr(_) => (),
+            ExprKind::VarLetExpr(ex) => {
                 self.collect_expr_entities(&ex.def)?;
                 self.add_entity(&ex.name, ex.let_id, Entity {});
                 self.collect_expr_entities(&ex.body)?;
                 self.remove_name(&ex.name);
             }
-            Expr::IfExpr(ex) => {
+            ExprKind::IfExpr(ex) => {
                 self.collect_expr_entities(&ex.cond)?;
                 self.collect_expr_entities(&ex.conseq)?;
                 self.collect_expr_entities(&ex.alter)?;
             }
-            Expr::FnAppExpr(ex) => {
+            ExprKind::FnAppExpr(ex) => {
                 self.collect_expr_entities(&ex.op)?;
                 ex.args
                     .iter()
@@ -102,17 +134,17 @@ impl<'hir> Environment<'hir> {
     }
 
     fn remove_name(&mut self, name: &'hir str) {
-        if let Some(ent_vec) = self.names.get_mut(name) {
+        if let Some(ent_vec) = self.var_env.get_mut(name) {
             ent_vec.pop();
             if ent_vec.is_empty() {
-                self.names.remove(name);
+                self.var_env.remove(name);
             }
         }
     }
 
     fn resolve_id(&mut self, id: Id, name: &'hir str) -> Result<(), HirCheckError> {
         let ent = self
-            .names
+            .var_env
             .get(name)
             .and_then(|ent_vec| ent_vec.last())
             .ok_or(HirCheckError::UnknownName(name.to_owned()))?;
@@ -123,7 +155,7 @@ impl<'hir> Environment<'hir> {
     fn add_entity(&mut self, name: &'hir str, id: Id, entity: Entity) {
         let idx = self.entities.len();
         self.entities.push(entity);
-        self.names.entry(name).or_default().push(idx);
+        self.var_env.entry(name).or_default().push(idx);
         self.refs.insert(id, idx);
     }
 }
@@ -154,56 +186,76 @@ fn test_collect_entities() {
                 name: "z".to_owned(),
             },
         ],
-        body: Box::new(Expr::VarLetExpr(VarLet {
+        body: Box::new(Expr {
             id: 6,
-            let_id: 7,
-            name: "x".to_owned(),
-            def: Box::new(Expr::FnAppExpr(FnApp {
-                id: 8,
-                op: Box::new(Expr::VarRefExpr(VarRef {
-                    id: 9,
-                    name: "add".to_owned(),
-                })),
-                args: vec![
-                    Expr::VarRefExpr(VarRef {
-                        id: 10,
-                        name: "x".to_owned(),
-                    }),
-                    Expr::VarRefExpr(VarRef {
-                        id: 11,
-                        name: "y".to_owned(),
-                    }),
-                ],
-            })),
-            body: Box::new(Expr::IfExpr(If {
-                id: 12,
-                cond: Box::new(Expr::LiteralExpr(Literal {
-                    id: 13,
-                    kind: LitKind::Int(Sign::Positive, 1),
-                })),
-                conseq: Box::new(Expr::FnAppExpr(FnApp {
-                    id: 14,
-                    op: Box::new(Expr::VarRefExpr(VarRef {
-                        id: 15,
-                        name: "add".to_owned(),
-                    })),
-                    args: vec![
-                        Expr::VarRefExpr(VarRef {
-                            id: 16,
-                            name: "x".to_owned(),
+            kind: ExprKind::VarLetExpr(VarLet {
+                let_id: 7,
+                name: "x".to_owned(),
+                def: Box::new(Expr {
+                    id: 8,
+                    kind: ExprKind::FnAppExpr(FnApp {
+                        op: Box::new(Expr {
+                            id: 9,
+                            kind: ExprKind::VarRefExpr(VarRef {
+                                name: "add".to_owned(),
+                            }),
                         }),
-                        Expr::VarRefExpr(VarRef {
-                            id: 17,
-                            name: "z".to_owned(),
+                        args: vec![
+                            Expr {
+                                id: 10,
+                                kind: ExprKind::VarRefExpr(VarRef {
+                                    name: "x".to_owned(),
+                                }),
+                            },
+                            Expr {
+                                id: 11,
+                                kind: ExprKind::VarRefExpr(VarRef {
+                                    name: "y".to_owned(),
+                                }),
+                            },
+                        ],
+                    }),
+                }),
+                body: Box::new(Expr {
+                    id: 12,
+                    kind: ExprKind::IfExpr(If {
+                        cond: Box::new(Expr {
+                            id: 13,
+                            kind: ExprKind::LiteralExpr(Literal::Int(Sign::Positive, 1)),
                         }),
-                    ],
-                })),
-                alter: Box::new(Expr::LiteralExpr(Literal {
-                    id: 18,
-                    kind: LitKind::Int(Sign::Positive, 0),
-                })),
-            })),
-        })),
+                        conseq: Box::new(Expr {
+                            id: 14,
+                            kind: ExprKind::FnAppExpr(FnApp {
+                                op: Box::new(Expr {
+                                    id: 15,
+                                    kind: ExprKind::VarRefExpr(VarRef {
+                                        name: "add".to_owned(),
+                                    }),
+                                }),
+                                args: vec![
+                                    Expr {
+                                        id: 16,
+                                        kind: ExprKind::VarRefExpr(VarRef {
+                                            name: "x".to_owned(),
+                                        }),
+                                    },
+                                    Expr {
+                                        id: 17,
+                                        kind: ExprKind::VarRefExpr(VarRef {
+                                            name: "z".to_owned(),
+                                        }),
+                                    },
+                                ],
+                            }),
+                        }),
+                        alter: Box::new(Expr {
+                            id: 18,
+                            kind: ExprKind::LiteralExpr(Literal::Int(Sign::Positive, 0)),
+                        }),
+                    }),
+                }),
+            }),
+        }),
     }))];
     let mut checker = HirChecker::new(hir.iter());
     assert_eq!(checker.collect_entities(), Ok(()));
