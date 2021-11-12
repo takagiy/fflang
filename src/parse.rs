@@ -1,10 +1,13 @@
 use thiserror::Error;
 
-use std::iter::Peekable;
+use std::{iter::Peekable, str::FromStr};
 
-use crate::lex::{
-    LexError, Sign, Token, TokenKind,
-    TokenSpec::{IsOp, IsWord},
+use crate::{
+    hir_check::{ParseTypeError, Type},
+    lex::{
+        LexError, Sign, Token, TokenKind,
+        TokenSpec::{IsOp, IsWord},
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,13 +25,7 @@ pub struct FnDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnParam {
     pub name: String,
-    pub type_: Type,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    TypeName(String),
-    Generic(String, Vec<Type>),
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -80,6 +77,8 @@ pub enum ParseError {
     UnexpectedEOF,
     #[error(transparent)]
     LexError(#[from] LexError),
+    #[error(transparent)]
+    ParseTypeError(#[from] ParseTypeError),
 }
 
 pub struct Parser<I: Iterator<Item = Result<Token, LexError>>> {
@@ -113,8 +112,8 @@ impl<I: Iterator<Item = Result<Token, LexError>>> Parser<I> {
         loop {
             let name = self.expect_word()?;
             self.expect(&[IsOp(":")])?;
-            let type_ = self.next_type()?;
-            result.push(FnParam { name, type_ });
+            let ty = self.next_type()?;
+            result.push(FnParam { name, ty });
             let delim = self.expect(&[IsOp(","), IsWord("do")])?;
             if delim == IsWord("do") {
                 break;
@@ -125,7 +124,7 @@ impl<I: Iterator<Item = Result<Token, LexError>>> Parser<I> {
 
     fn next_type(&mut self) -> Result<Type, ParseError> {
         let name = self.expect_word()?;
-        Ok(Type::TypeName(name))
+        Ok(Type::from_str(&name)?)
     }
 
     fn next_expr(&mut self, consume_args: bool) -> Result<Expr, ParseError> {
@@ -292,7 +291,7 @@ fn test_parser() {
             name: "fizzbuzz".to_owned(),
             params: vec![FnParam {
                 name: "i".to_owned(),
-                type_: Type::TypeName("Int".to_owned())
+                ty: Type::from_str("Int").unwrap(),
             }],
             body: Box::new(Expr::FnAppExpr(FnApp {
                 fn_name: "pln".to_owned(),

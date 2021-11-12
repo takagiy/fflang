@@ -4,6 +4,7 @@ use thiserror::Error;
 use std::iter::Peekable;
 
 use crate::{
+    hir_check::Type,
     lex::Sign,
     parse::{self, ParseError},
 };
@@ -28,6 +29,7 @@ pub struct FnDef {
 pub struct FnParam {
     pub id: Id,
     pub name: String,
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,6 +56,7 @@ pub struct VarRef {
 pub enum Literal {
     Int(Sign, u64),
     Float(f64),
+    Bool(bool),
     Str(String),
 }
 
@@ -121,6 +124,7 @@ where
         Ok(FnParam {
             id: self.uniq_id(),
             name: ast.name,
+            ty: ast.ty,
         })
     }
 
