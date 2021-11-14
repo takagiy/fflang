@@ -12,11 +12,6 @@ use crate::{
 pub type Id = usize;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Decl {
-    FnDefDecl(FnDef),
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
     pub id: Id,
     pub let_id: Id,
@@ -99,25 +94,25 @@ impl<I> HirGenerator<I>
 where
     I: Iterator<Item = Result<parse::Decl, ParseError>>,
 {
-    pub fn generate(&mut self, ast: parse::Decl) -> Result<Decl, HirGenError> {
+    pub fn generate(&mut self, ast: parse::Decl) -> Result<FnDef, HirGenError> {
         match ast {
             parse::Decl::FnDefDecl(fn_def) => self.gen_fn_def(fn_def),
         }
     }
 
-    fn gen_fn_def(&mut self, ast: parse::FnDef) -> Result<Decl, HirGenError> {
+    fn gen_fn_def(&mut self, ast: parse::FnDef) -> Result<FnDef, HirGenError> {
         let params = ast
             .params
             .into_iter()
             .map(|p| self.gen_param(p))
             .try_collect()?;
-        Ok(Decl::FnDefDecl(FnDef {
+        Ok(FnDef {
             id: self.uniq_id(),
             let_id: self.uniq_id(),
             name: ast.name,
             params,
             body: Box::new(self.gen_expr(*ast.body)?),
-        }))
+        })
     }
 
     fn gen_param(&mut self, ast: parse::FnParam) -> Result<FnParam, HirGenError> {
@@ -174,7 +169,7 @@ impl<I> Iterator for HirGenerator<I>
 where
     I: Iterator<Item = Result<parse::Decl, ParseError>>,
 {
-    type Item = Result<Decl, HirGenError>;
+    type Item = Result<FnDef, HirGenError>;
     fn next(&mut self) -> Option<Self::Item> {
         Some(match self.asts.next()? {
             Ok(ast) => self.generate(ast),

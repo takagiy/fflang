@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use std::{collections::HashMap, str::FromStr};
 
-use crate::hir_gen::{self, Decl, Expr, ExprKind, FnDef, HirGenError, Id, Literal};
+use crate::hir_gen::{Expr, ExprKind, FnDef, HirGenError, Id, Literal};
 
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum HirCheckError {
@@ -48,7 +48,7 @@ pub struct Environment<'hir> {
 
 pub struct HirChecker<'hir> {
     pub env: Environment<'hir>,
-    pub hir: &'hir Vec<Result<hir_gen::Decl, HirGenError>>,
+    pub hir: &'hir Vec<Result<FnDef, HirGenError>>,
 }
 
 impl FromStr for Type {
@@ -78,7 +78,7 @@ impl<'hir> Environment<'hir> {
 }
 
 impl<'hir> HirChecker<'hir> {
-    pub fn new(hir: &'hir Vec<Result<hir_gen::Decl, HirGenError>>) -> Self {
+    pub fn new(hir: &'hir Vec<Result<FnDef, HirGenError>>) -> Self {
         HirChecker {
             env: Environment::new(),
             hir,
@@ -88,9 +88,7 @@ impl<'hir> HirChecker<'hir> {
     pub fn check_type(&mut self) -> Result<(), HirCheckError> {
         for decl in self.hir {
             match decl {
-                Ok(decl) => match decl {
-                    Decl::FnDefDecl(fn_def) => self.env.type_fn(fn_def)?,
-                },
+                Ok(fn_def) => self.env.type_fn(fn_def)?,
                 Err(e) => return Err(HirCheckError::HirGenError(e.clone())),
             }
         }
@@ -100,9 +98,7 @@ impl<'hir> HirChecker<'hir> {
     pub fn collect_entities(&mut self) -> Result<(), HirCheckError> {
         for decl in self.hir {
             match decl {
-                Ok(decl) => match decl {
-                    Decl::FnDefDecl(fn_def) => self.env.collect_fn_entities(fn_def)?,
-                },
+                Ok(fn_def) => self.env.collect_fn_entities(fn_def)?,
                 Err(e) => return Err(HirCheckError::HirGenError(e.clone())),
             }
         }
@@ -172,7 +168,7 @@ impl<'hir> Environment<'hir> {
         }
     }
 
-    fn get_ty(&self, id: Id) -> Result<&Type, HirCheckError> {
+    pub fn get_ty(&self, id: Id) -> Result<&Type, HirCheckError> {
         self.refs
             .get(&id)
             .and_then(|idx| self.types.get(&self.entities[*idx].orig_id))
@@ -287,10 +283,10 @@ fn test_collect_entities() {
 }
 
 #[cfg(test)]
-fn test_hir() -> Vec<Result<Decl, HirGenError>> {
+fn test_hir() -> Vec<Result<FnDef, HirGenError>> {
     use crate::hir_gen::*;
     use crate::lex::Sign;
-    vec![Ok(Decl::FnDefDecl(FnDef {
+    vec![Ok(FnDef {
         id: 0,
         let_id: 1,
         name: "sum".to_owned(),
@@ -386,5 +382,5 @@ fn test_hir() -> Vec<Result<Decl, HirGenError>> {
                 }),
             }),
         }),
-    }))]
+    })]
 }
