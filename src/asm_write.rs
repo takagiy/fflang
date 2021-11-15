@@ -2,16 +2,12 @@ use thiserror::Error;
 
 use std::{ops::Deref, path::Path};
 
-use inkwell::{
-    module::Module,
-    targets::{CodeModel, FileType, RelocMode, Target, TargetMachine},
-    OptimizationLevel,
-};
+use inkwell::{OptimizationLevel, module::Module, support::LLVMString, targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine}};
 
-#[derive(Debug, Error, Clone, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum AsmWriteError {
     #[error("Failed to write")]
-    WriteFailed,
+    WriteFailed(LLVMString),
 }
 
 pub struct AsmWriter {
@@ -19,7 +15,15 @@ pub struct AsmWriter {
 }
 
 impl AsmWriter {
-    fn new() -> Self {
+    pub fn new() -> Self {
+        Target::initialize_all(&InitializationConfig {
+            asm_parser: true,
+            asm_printer: true,
+            base: true,
+            disassembler: true,
+            info: true,
+            machine_code: true,
+        });
         let triple = TargetMachine::get_default_triple();
         let target = Target::from_triple(&triple).unwrap();
         let cpu = TargetMachine::get_host_cpu_name();
@@ -40,9 +44,9 @@ impl AsmWriter {
         AsmWriter { machine }
     }
 
-    fn write(&self, module: &Module, path: &Path) -> Result<(), AsmWriteError> {
+    pub fn write(&self, module: &Module, path: &Path) -> Result<(), AsmWriteError> {
         self.machine
             .write_to_file(module, FileType::Object, path)
-            .map_err(|_| AsmWriteError::WriteFailed)
+            .map_err(|msg| AsmWriteError::WriteFailed(msg))
     }
 }

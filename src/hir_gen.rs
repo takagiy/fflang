@@ -94,6 +94,13 @@ impl<I> HirGenerator<I>
 where
     I: Iterator<Item = Result<parse::Decl, ParseError>>,
 {
+    pub fn new(asts: I) -> Self {
+        HirGenerator {
+            asts: asts.peekable(),
+            id: 0,
+        }
+    }
+
     pub fn generate(&mut self, ast: parse::Decl) -> Result<FnDef, HirGenError> {
         match ast {
             parse::Decl::FnDefDecl(fn_def) => self.gen_fn_def(fn_def),
