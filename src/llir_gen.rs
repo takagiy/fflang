@@ -25,6 +25,8 @@ pub enum LLIRGenError {
     NonFunctionalType,
     #[error("Unexpected functional type were found")]
     FunctionalType,
+    #[error("Failed to verify function")]
+    FunctionVerifyFailed,
     #[error(transparent)]
     HirCheckError(#[from] HirCheckError),
 }
@@ -120,7 +122,12 @@ impl<'hir, 'ctx> LLIRGenInner<'hir, 'ctx> {
         }
         let ret = self.gen_expr(&fn_def.body)?;
         self.builder.build_return(Some(&ret));
-        Ok(())
+        if f.verify(false) {
+            self.fpm.run_on(&f);
+            Ok(())
+        }else {
+            Err(LLIRGenError::FunctionVerifyFailed)
+        }
     }
 
     pub fn gen_expr(&mut self, expr: &'hir Expr) -> Result<BasicValueEnum<'ctx>, LLIRGenError> {
