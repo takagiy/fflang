@@ -2,12 +2,13 @@ use itertools::Itertools;
 use thiserror::Error;
 
 use inkwell::{
-    builder::{self, Builder},
+    builder::Builder,
     context,
     module::Module,
-    passes::PassManager,
+    passes::{PassManager, PassManagerBuilder},
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
     values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue},
+    OptimizationLevel,
 };
 
 use crate::{
@@ -37,11 +38,7 @@ pub struct Context<'ctx> {
     raw: &'ctx context::Context,
 }
 
-pub struct LLIRGen<'hir, 'ctx, I>
-where
-    I: Iterator<Item = &'hir Result<FnDef, HirGenError>>,
-{
-    pub hir: I,
+pub struct LLIRGenInner<'hir, 'ctx> {
     pub ck_env: hir_check::Environment<'hir>,
     pub env: Environment<'ctx>,
     pub context: Context<'ctx>,
@@ -51,10 +48,61 @@ where
     pub current_fn: Option<FunctionValue<'ctx>>,
 }
 
+pub struct LLIRGen<'hir, 'ctx, I>
+where
+    I: Iterator<Item = &'hir Result<FnDef, HirGenError>>,
+{
+    pub hir: I,
+    pub inner: LLIRGenInner<'hir, 'ctx>,
+}
+
 impl<'hir, 'ctx, I> LLIRGen<'hir, 'ctx, I>
 where
     I: Iterator<Item = &'hir Result<FnDef, HirGenError>>,
 {
+    pub fn new(
+        context: &'ctx context::Context,
+        hir: I,
+        ck_env: hir_check::Environment<'hir>,
+    ) -> Self {
+        let module = context.create_module("main");
+        let env = Environment {
+            functions: vec![None; ck_env.entities.len()],
+            vars: vec![
+                context
+                    .i32_type()
+                    .ptr_type(inkwell::AddressSpace::Generic)
+                    .const_null();
+                ck_env.entities.len()
+            ],
+        };
+        let fpm = PassManager::create(&module);
+        let pm_builder = PassManagerBuilder::create();
+        pm_builder.set_optimization_level(OptimizationLevel::Aggressive);
+        pm_builder.populate_function_pass_manager(&fpm);
+        LLIRGen {
+            hir,
+            inner: LLIRGenInner {
+                ck_env,
+                env,
+                fpm,
+                module,
+                context: Context { raw: context },
+                builder: context.create_builder(),
+                current_fn: None,
+            },
+        }
+    }
+
+    pub fn generate(&mut self) -> Result<(), LLIRGenError> {
+        for fn_def in self.hir.by_ref() {
+            self.inner.generate(fn_def.as_ref().unwrap())?;
+        }
+        Ok(())
+    }
+}
+
+impl<'hir, 'ctx> LLIRGenInner<'hir, 'ctx> {
     pub fn generate(&mut self, fn_def: &'hir FnDef) -> Result<(), LLIRGenError> {
         let ty = self.ck_env.get_ty(fn_def.let_id)?;
         let ty = self.context.fn_ty(ty)?;
