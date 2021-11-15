@@ -125,7 +125,7 @@ impl<'hir, 'ctx> LLIRGenInner<'hir, 'ctx> {
         if f.verify(false) {
             self.fpm.run_on(&f);
             Ok(())
-        }else {
+        } else {
             Err(LLIRGenError::FunctionVerifyFailed)
         }
     }
