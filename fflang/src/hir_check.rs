@@ -178,7 +178,8 @@ impl<'hir> Environment<'hir> {
         self.refs
             .get(&id)
             .and_then(|idx| self.types.get(&self.entities[*idx].orig_id))
-            .or_else(|| self.types.get(&id)).ok_or(HirCheckError::TypeUnknown)
+            .or_else(|| self.types.get(&id))
+            .ok_or(HirCheckError::TypeUnknown)
     }
 
     fn set_ty(&mut self, id: Id, ty: Type) {
