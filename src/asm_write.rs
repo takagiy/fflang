@@ -2,7 +2,12 @@ use thiserror::Error;
 
 use std::{ops::Deref, path::Path};
 
-use inkwell::{OptimizationLevel, module::Module, support::LLVMString, targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine}};
+use inkwell::{
+    module::Module,
+    support::LLVMString,
+    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
+    OptimizationLevel,
+};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum AsmWriteError {
