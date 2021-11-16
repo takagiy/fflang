@@ -3,7 +3,6 @@ use thiserror::Error;
 
 use inkwell::{
     builder::Builder,
-    context,
     module::Module,
     passes::{PassManager, PassManagerBuilder},
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
@@ -16,6 +15,10 @@ use crate::{
     hir_gen::{Expr, ExprKind, FnDef, HirGenError, Literal},
     lex::Sign,
 };
+
+pub mod llvm {
+    pub type Context = inkwell::context::Context;
+}
 
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum LLIRGenError {
@@ -37,7 +40,7 @@ pub struct Environment<'ctx> {
 }
 
 pub struct Context<'ctx> {
-    raw: &'ctx context::Context,
+    raw: &'ctx llvm::Context,
 }
 
 pub struct LLIRGenInner<'hir, 'ctx> {
@@ -63,7 +66,7 @@ where
     I: Iterator<Item = &'hir Result<FnDef, HirGenError>>,
 {
     pub fn new(
-        context: &'ctx context::Context,
+        context: &'ctx llvm::Context,
         hir: I,
         ck_env: hir_check::Environment<'hir>,
     ) -> Self {
