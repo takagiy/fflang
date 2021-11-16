@@ -178,8 +178,7 @@ impl<'hir> Environment<'hir> {
         self.refs
             .get(&id)
             .and_then(|idx| self.types.get(&self.entities[*idx].orig_id))
-            .or_else(|| self.types.get(&id))
-            .ok_or_else(|| HirCheckError::TypeUnknown)
+            .or_else(|| self.types.get(&id)).ok_or(HirCheckError::TypeUnknown)
     }
 
     fn set_ty(&mut self, id: Id, ty: Type) {
@@ -237,7 +236,7 @@ impl<'hir> Environment<'hir> {
             .var_env
             .get(name)
             .and_then(|ent_vec| ent_vec.last())
-            .ok_or(HirCheckError::UnknownName(name.to_owned()))?;
+            .ok_or_else(|| HirCheckError::UnknownName(name.to_owned()))?;
         self.refs.insert(id, *ent);
         Ok(())
     }
