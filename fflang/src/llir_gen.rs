@@ -65,11 +65,7 @@ impl<'hir, 'ctx, I> LLIRGen<'hir, 'ctx, I>
 where
     I: Iterator<Item = &'hir Result<FnDef, HirGenError>>,
 {
-    pub fn new(
-        context: &'ctx llvm::Context,
-        hir: I,
-        ck_env: hir_check::Environment<'hir>,
-    ) -> Self {
+    pub fn new(context: &'ctx llvm::Context, hir: I, ck_env: hir_check::Environment<'hir>) -> Self {
         let module = context.create_module("main");
         let env = Environment {
             functions: vec![None; ck_env.entities.len()],
@@ -177,7 +173,7 @@ impl<'hir, 'ctx> LLIRGenInner<'hir, 'ctx> {
                     .build_call(f, &args, &expr.id.to_string())
                     .try_as_basic_value()
                     .left()
-                    .unwrap_or(self.context.raw.i8_type().const_zero().into())
+                    .unwrap_or_else(|| self.context.raw.i8_type().const_zero().into())
             }
             ExprKind::IfExpr(ex) => {
                 let cur_f = self.current_fn.unwrap();
@@ -219,9 +215,9 @@ impl<'ctx> Context<'ctx> {
             Type::Fn(ret, param) => {
                 let param: Vec<BasicMetadataTypeEnum<'ctx>> = param
                     .iter()
-                    .map(|ty| self.basic_ty(&ty).map(Into::into))
+                    .map(|ty| self.basic_ty(ty).map(Into::into))
                     .try_collect()?;
-                Ok(self.basic_ty(&ret)?.fn_type(&param, false))
+                Ok(self.basic_ty(ret)?.fn_type(&param, false))
             }
             _ => Err(LLIRGenError::NonFunctionalType),
         }

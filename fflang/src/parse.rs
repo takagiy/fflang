@@ -190,8 +190,8 @@ impl<I: Iterator<Item = Result<Token, LexError>>> Parser<I> {
 
     fn next_token(&mut self) -> Result<Token, ParseError> {
         match self.tokens.next() {
-            None => return Err(ParseError::UnexpectedEOF),
-            Some(Err(e)) => return Err(ParseError::LexError(e)),
+            None => Err(ParseError::UnexpectedEOF),
+            Some(Err(e)) => Err(ParseError::LexError(e)),
             Some(Ok(t)) => Ok(t),
         }
     }

@@ -48,7 +48,7 @@ pub struct Environment<'hir> {
 
 pub struct HirChecker<'hir> {
     pub env: Environment<'hir>,
-    pub hir: &'hir Vec<Result<FnDef, HirGenError>>,
+    pub hir: &'hir [Result<FnDef, HirGenError>],
 }
 
 impl FromStr for Type {
@@ -66,6 +66,12 @@ impl FromStr for Type {
     }
 }
 
+impl<'hir> Default for Environment<'hir> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'hir> Environment<'hir> {
     pub fn new() -> Self {
         Environment {
@@ -78,7 +84,7 @@ impl<'hir> Environment<'hir> {
 }
 
 impl<'hir> HirChecker<'hir> {
-    pub fn new(hir: &'hir Vec<Result<FnDef, HirGenError>>) -> Self {
+    pub fn new(hir: &'hir [Result<FnDef, HirGenError>]) -> Self {
         HirChecker {
             env: Environment::new(),
             hir,
@@ -157,7 +163,7 @@ impl<'hir> Environment<'hir> {
             }
         };
         self.set_ty(expr.id, ty);
-        Ok(self.get_ty(expr.id)?)
+        self.get_ty(expr.id)
     }
 
     fn unify(&mut self, t: &Type, u: &Type) -> Result<(), HirCheckError> {
@@ -172,8 +178,8 @@ impl<'hir> Environment<'hir> {
         self.refs
             .get(&id)
             .and_then(|idx| self.types.get(&self.entities[*idx].orig_id))
-            .or(self.types.get(&id))
-            .ok_or(HirCheckError::TypeUnknown)
+            .or_else(|| self.types.get(&id))
+            .ok_or_else(|| HirCheckError::TypeUnknown)
     }
 
     fn set_ty(&mut self, id: Id, ty: Type) {

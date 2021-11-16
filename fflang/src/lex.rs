@@ -151,14 +151,14 @@ impl<'a> Iterator for Lexer<'a> {
             _ => return Some(Err(LexError::UnrecognizedSymbol)),
         };
 
-        return Some(Ok((Location { row, letter }, token)));
+        Some(Ok((Location { row, letter }, token)))
     }
 }
 
 #[test]
 fn lexer_test() {
     let mut lx = Lexer::new(
-        &"Hello, World!
+        "Hello, World!
     let x = 90 in
         x_**2
     ",

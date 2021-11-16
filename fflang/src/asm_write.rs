@@ -19,6 +19,12 @@ pub struct AsmWriter {
     pub machine: TargetMachine,
 }
 
+impl Default for AsmWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AsmWriter {
     pub fn new() -> Self {
         Target::initialize_all(&InitializationConfig {
@@ -52,6 +58,6 @@ impl AsmWriter {
     pub fn write(&self, module: &Module, path: &Path) -> Result<(), AsmWriteError> {
         self.machine
             .write_to_file(module, FileType::Object, path)
-            .map_err(|msg| AsmWriteError::WriteFailed(msg))
+            .map_err(AsmWriteError::WriteFailed)
     }
 }
